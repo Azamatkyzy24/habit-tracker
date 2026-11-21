@@ -1,0 +1,53 @@
+# Task 7 FINAL checks - main after merge (Linux, Python 3.13.18)
+$ python -m pytest -q -p no:cacheprovider
+...........................                                              [100%]
+27 passed in 0.13s
+[exit code: 0]
+
+$ ruff check --isolated .
+All checks passed!
+[exit code: 0]
+
+$ mypy habit_tracker
+Success: no issues found in 6 source files
+[exit code: 0]
+
+$ python -m compileall -q habit_tracker
+[exit code: 0]
+
+$ python -m coverage report
+Name                        Stmts   Miss  Cover
+-----------------------------------------------
+habit_tracker/__init__.py       1      0   100%
+habit_tracker/cli.py           63      2    97%
+habit_tracker/exporter.py      22      0   100%
+habit_tracker/models.py         6      0   100%
+habit_tracker/storage.py       29      0   100%
+habit_tracker/tracker.py       38      1    97%
+-----------------------------------------------
+TOTAL                         159      3    98%
+[exit code: 0]
+
+## AC3: a data file written by the BASELINE version still loads (throwaway copies)
+$ cat data/habits.json   (written by baseline)
+[
+  {
+    "name": "Read",
+    "created": "2026-11-21",
+    "checkins": [
+      "2026-11-20"
+    ]
+  }
+]$ python -m habit_tracker.cli export --format json   (final version)
+[
+  {
+    "name": "Read",
+    "created": "2026-11-21",
+    "streak": 0,
+    "weekly_percent": 14
+  }
+]
+[exit code: 0]
+
+## Original 6 tests unchanged since baseline
+git diff baseline -- tests/test_tracker.py: no changes

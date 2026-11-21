@@ -68,3 +68,6 @@ Five risks share the highest score (6): R1, R3, R4, R5, R6. Tie-break rules, in 
 | **2** | **R3 — `export --out` silently overwrites any file, including the data store (SEC-1)** | Silent loss with no warning, easy to trigger by a typo or an agent; confirmed end-to-end. | R5 (the same `open()` call gets `encoding="utf-8", newline=""`) |
 
 Next highest, kept for future work with owners above: R6, R4, R5.
+
+> **Update after Task 7:** R1, R2, R3 and R5 were mitigated and re-scored (R1 6→2, R2 3→1, R3 6→2, R5 6→1).
+> See [`07-mitigations.md`](07-mitigations.md#updated-risk-scores). The table above keeps the Task 5 scores as recorded.
