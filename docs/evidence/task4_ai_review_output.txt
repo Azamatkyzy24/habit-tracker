@@ -1,0 +1,166 @@
+I'll start by checking the file-reading skill, then unpack the ZIP to read it.
+
+The project is small. The instructions say to read AGENTS.md first, so I'll read that, then the other context files, using `unzip -p` so nothing gets extracted or run.
+
+Now the source code, with line numbers.
+
+Next, the tests and the docs they refer to, including the acceptance criteria and the recorded evidence.
+
+I'll also check the recorded evidence files, since some of the docs' claims bear on risks, and whether the ZIP has any git metadata.
+
+I read AGENTS.md first, then every source file, test, doc and evidence text file. I did not execute anything from the project. Every "expected" result below comes from reading the code and is marked "not executed". Line numbers are from the files as they appear in the archive.
+
+**Safe way to verify:** `DATA_FILE` is resolved relative to the package directory (`storage.py:6`). So if you unzip to a scratch folder, `reset` and `export` experiments cannot touch your real `data/habits.json`.
+
+```
+unzip habit-tracker-main.zip -d /tmp/ht-review && cd /tmp/ht-review/habit-tracker-main
+```
+
+---
+
+### COR-1 · correctness: duplicate check-ins inflate the weekly percentage
+- **Cause →** `check_in` appends without checking for an existing entry (`tracker.py:27`), while `weekly_completion` counts entries, not distinct days (`tracker.py:48-50`).
+- **Event →** The user runs `done` twice on the same day (or `--date` repeats a day).
+- **Consequence →** The weekly percent can exceed 100% (8 entries gives 114) while the streak stays at 1, so report and export disagree with reality.
+- **Where:** `tracker.py` `check_in` (22-28), `weekly_completion` (43-51)
+- **Verify** (in memory, no file access):
+  ```
+  python -c "from datetime import date as D; from habit_tracker.tracker import *; t=D(2026,11,21); h=[]; add_habit(h,'R',t); [check_in(h,'R',t) for _ in range(8)]; print(weekly_completion(h[0],t), current_streak(h[0],t))"
+  ```
+  Expected from reading: `114 1` (not executed).
+- **Confidence:** high. I saw the logic; the output is not executed.
+
+### COR-2 · correctness: one bad data file locks out every command, including `reset`
+- **Cause →** `main()` loads the data file before dispatching any subcommand (`cli.py:30`). `load_habits` does no error handling or validation (`storage.py:12-14`).
+- **Event →** `habits.json` is empty, truncated (see COR-3), overwritten (see SEC-1), hand-edited, or has keys that don't match `Habit`.
+- **Consequence →** `json.JSONDecodeError` or `TypeError` is raised before the `reset` branch (`cli.py:57`). The only built-in recovery command fails, and the user must delete the file by hand, which AGENTS.md §7 forbids to agents.
+- **Where:** `cli.py` `main` (30, 57-59), `storage.py` `load_habits` (9-14)
+- **Verify** (scratch copy):
+  ```
+  mkdir -p data && echo '{broken' > data/habits.json && python -m habit_tracker.cli reset; echo "exit=$?"; ls data/
+  ```
+  Expected from reading: traceback, non-zero exit, file still present (not executed).
+- **Confidence:** high. Seen in code.
+
+### COR-3 · correctness: non-atomic, unlocked writes can lose data
+- **Cause →** `save_habits` opens the real file with `"w"`, which truncates it immediately (`storage.py:19`), and then streams JSON into it (`storage.py:20`). Every command also does load, modify, save with no lock (`cli.py:30,34,40`).
+- **Event →** The process is interrupted (Ctrl-C, kill, disk full) between truncation and the end of the dump, or two commands run at once.
+- **Consequence →** The file ends up empty or partial, which triggers COR-2. With concurrent runs, one update silently overwrites the other. The `data/` folder is git-ignored, so there is no backup.
+- **Where:** `storage.py` `save_habits` (17-20), `cli.py` (30-40)
+- **Verify** (simulates an interrupted dump):
+  ```
+  python - <<'EOF'
+  import os, tempfile
+  from unittest import mock
+  from habit_tracker import storage
+  from habit_tracker.models import Habit
+  p = os.path.join(tempfile.mkdtemp(), "h.json")
+  storage.save_habits([Habit("a", "2026-11-21")], p)
+  with mock.patch("json.dump", side_effect=KeyboardInterrupt):
+      try: storage.save_habits([Habit("a", "2026-11-21")], p)
+      except KeyboardInterrupt: pass
+  print(repr(open(p).read()))
+  EOF
+  ```
+  Expected from reading: `''` (not executed).
+- **Confidence:** medium. Truncate-on-open is seen. The timing of a real interruption is inference. The concurrent-run case is a guess, and docs/01 §4 lists "single user" as an unchecked assumption.
+
+### COR-4 · correctness: export file I/O is not cross-platform
+- **Cause →** `export --out` uses `open(args.out, "w")` with no `encoding` and no `newline` (`cli.py:51-52`). The CSV text already contains `\r\n` from the csv module (`exporter.py:28-32`).
+- **Event →** Someone exports on Windows (which the author uses, per docs/01), or with a non-ASCII habit name.
+- **Consequence →** On Windows each row ends in `\r\r\n` (blank lines in some tools). A name that the locale code page can't encode (for example Cyrillic under cp1252) can raise `UnicodeEncodeError` after the user has already checked in.
+- **Where:** `cli.py` export branch (49-53), `exporter.py` `to_csv` (27-32)
+- **Verify** (Windows scratch copy, PowerShell):
+  ```
+  python -m habit_tracker.cli add Read
+  python -m habit_tracker.cli export --format csv --out out.csv
+  python -c "print(open('out.csv','rb').read())"
+  ```
+  Expected from reading: `\r\r\n` on Windows, `\r\n` on Linux (not executed). Also try `add "Чтение"` with a cp1252 code page.
+- **Confidence:** medium. The `open()` calls are seen. The platform behaviour comes from Python semantics and is not executed. The encoding failure depends on locale.
+
+### SEC-1 · security: `export --out` can overwrite any file, including the data store
+- **Cause →** `--out` is passed straight to `open(..., "w")` with no path check, overwrite protection or confirmation (`cli.py:50-52`).
+- **Event →** A user, script or AI agent passes a path like `data/habits.json`, or any existing file.
+- **Consequence →** The file is silently replaced. If it is the store, CSV content in it triggers COR-2 and the habits are lost. The attack surface is small, since it is a local single-user CLI.
+- **Where:** `cli.py` `main`, export branch (48-55)
+- **Verify** (scratch copy):
+  ```
+  python -m habit_tracker.cli add Read && python -m habit_tracker.cli export --format csv --out data/habits.json && python -m habit_tracker.cli report
+  ```
+  Expected from reading: the export succeeds, then `report` crashes with `JSONDecodeError` (not executed).
+- **Confidence:** high that no guard exists (seen). Medium on real-world impact.
+
+### SEC-2 · security: CSV formula injection through habit names
+- **Cause →** `to_csv` writes names verbatim (`exporter.py:14,27-32`), and `add` accepts any string (`cli.py:14`, `tracker.py:13-19`).
+- **Event →** A habit named like `=1+1` or `@SUM(...)` is exported and the CSV is opened in Excel or Sheets.
+- **Consequence →** The cell is evaluated as a formula. This only matters if the names or `habits.json` come from someone else, so severity is low for single-user use.
+- **Where:** `exporter.py` `_rows` (10-20), `to_csv` (27-32)
+- **Verify** (in memory):
+  ```
+  python -c "from habit_tracker.exporter import export; from habit_tracker.models import Habit; print(export([Habit('=1+1','2026-11-21')], 'csv'))"
+  ```
+  Expected from reading: a data line starting with an unquoted `=1+1,2026-11-21,0,0` (not executed).
+- **Confidence:** medium. The unescaped write is seen. Impact depends on how the CSV is used.
+
+### DEP-1 · dependency: unpinned and undeclared tooling, so the environment isn't reproducible
+- **Cause →** `requirements.txt` is the single line `pytest`. There is no `pyproject.toml` or Python-version declaration, and `ruff`, `mypy` and `coverage` (all used in AGENTS.md §4 and the evidence files) are not listed.
+- **Event →** A fresh machine, CI job or agent sandbox installs whatever is newest, or lacks the lint and type tools.
+- **Consequence →** "6 passed" or "all checks passed" can differ between environments, and the §4 "safe commands" can fail with "command not found". Also, `task1_baseline.txt` says "fresh virtual environment" but pip prints "Requirement already satisfied", so that evidence doesn't prove `requirements.txt` alone is enough.
+- **Where:** `requirements.txt:1`, AGENTS.md §3-4, `docs/evidence/task1_baseline.txt`
+- **Verify:**
+  ```
+  cat requirements.txt; grep -nE 'ruff|mypy|coverage' requirements.txt || echo "not listed"; ls pyproject.toml setup.cfg 2>&1
+  pip install -r requirements.txt --dry-run
+  ```
+  The `--dry-run` needs network and is not executed.
+- **Confidence:** high for what is seen. The docs' claim of pytest 9.1.1 vs 9.2.0 on the same day is the author's, and I haven't verified it.
+
+### MNT-1 · maintainability: test isolation has holes that a future test could fall through
+- **Cause →** The `data_file` fixture patches only `load_habits` and `save_habits` (`test_cli.py:22-23`), not `storage.reset`. The path defaults are bound at definition time (`storage.py:9,17,23`), so `monkeypatch.setattr(storage, "DATA_FILE", ...)` has no effect. `test_cli.py:44` uses `date.today()`, against AGENTS.md §6.
+- **Event →** Someone (human or agent) adds a `reset` CLI test using the existing fixture or the obvious `DATA_FILE` patch.
+- **Consequence →** The test deletes the real `data/habits.json`, despite the module docstring (`test_cli.py:1-2`) saying tests never touch it. The `date.today()` test can also fail if midnight passes between commands.
+- **Where:** `tests/test_cli.py` (1-2, 17-24, 44-46), `storage.py` (6, 9, 17, 23-25), `cli.py` (57-59)
+- **Verify:**
+  ```
+  grep -rn "reset" tests/ ; grep -n "date.today" tests/test_cli.py
+  python -c "import inspect; from habit_tracker import storage; print(inspect.signature(storage.reset))"
+  ```
+  Expected from reading: no `reset` matches in tests, one hit at line 44, and a signature with the path baked in (not executed).
+- **Confidence:** high that the gaps exist (seen). The consequence is hypothetical, since no such test exists today.
+
+### AGT-1 · agent operations: the guardrails are prose only
+- **Cause →** `reset` deletes the store immediately with no prompt, `--yes` flag or backup (`cli.py:57-59`, `storage.py:23-25`). The only protection is AGENTS.md §7.3. There is no environment variable to redirect the data path, and the archive has no `.claude/` settings, hooks, CI or `.github`. `data/` is git-ignored, and docs/02 says `CLAUDE.md` was never tested with Claude Code.
+- **Event →** An agent doesn't load the instructions, ignores them, or runs `reset` while "trying the CLI".
+- **Consequence →** All habit data is lost with no recovery, since it is neither in git nor backed up.
+- **Where:** `cli.py:57-59`, `storage.py:23-25`, `.gitignore`, AGENTS.md §4/§7/§8, `docs/02-agent-instructions.md`
+- **Verify:**
+  ```
+  unzip -l habit-tracker-main.zip | grep -E '\.claude|\.github|pyproject' || echo "none present"
+  grep -nE 'input\(|confirm|--yes' habit_tracker/cli.py || echo "no confirmation"
+  ```
+  Expected from reading: both fallback messages print (not executed).
+- **Confidence:** high on the facts (seen). Agent behaviour is inference. The archive has no `.git`, so branch protection and the `baseline` tag are not verifiable by me.
+
+### AGT-2 · agent operations: the acceptance criteria don't fully guard themselves
+- **Cause →** AC3 ("old data still loads") has no automated test; docs/01 marks it "to be added", and `test_save_and_load` (`test_tracker.py:53-59`) only round-trips new data and checks `name`. The AC5 check "≥ 6 passed" (docs/01 §5) is stale now that there are 16 tests. Task 3 already changed AC1 (`report --format json` gained `created`; docs/03 §4).
+- **Event →** An agent changes `Habit` fields (`models.py:5-8`) or the serialization (`h.__dict__`, `storage.py:20`), or deletes `test_cli.py`.
+- **Consequence →** `Habit(**item)` (`storage.py:14`) could break every existing user file with all tests green. Deleting the 10 CLI tests still meets "≥ 6 passed". AC1 has precedent for being bent.
+- **Where:** `docs/01-baseline.md` §5, `tests/test_tracker.py:53-59`, `models.py`, `storage.py:14,20`, AGENTS.md §6-8
+- **Verify:**
+  ```
+  grep -rn "AC3" tests/ || echo "no AC3 test"; grep -n "≥ 6" docs/01-baseline.md
+  python -m pytest --collect-only -q | tail -1
+  ```
+  Expected from reading: "no AC3 test", the `≥ 6` line, and 16 tests per the author's recorded output (not executed).
+- **Confidence:** high that the gaps exist (seen). The consequence is inference.
+
+---
+
+**Also noticed (not counted above):**
+- `current_streak` (`tracker.py:37`) is 0 until you check in today, even after a long streak. AC2 pins this behaviour, so an agent "fixing" it would break an acceptance criterion.
+- `add`, `done` and `--date` don't validate input. Duplicate names or unknown habits raise uncaught `ValueError` tracebacks (`cli.py:33,39`), a bad date raises a traceback (`cli.py:38`), and empty names are accepted. Names are case- and whitespace-sensitive (`tracker.py:8`).
+- `os.makedirs(os.path.dirname(path))` (`storage.py:18`) will likely fail for a bare filename like `"habits.json"`, because `dirname` is `""`. The tests only use absolute `tmp_path` paths.
+- README still says `pytest` and `python main.py`, which AGENTS.md says are wrong. AGENTS.md §2 also lists only `test_tracker.py`.
+
+**Highest priority if you act on any:** COR-2 with COR-3 (the lockout with no recovery), then AGT-2 (AC3 can break silently), then COR-1 (a visible wrong number).

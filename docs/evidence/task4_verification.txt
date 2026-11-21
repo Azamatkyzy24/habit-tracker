@@ -1,0 +1,134 @@
+# Task 4 verification of AI findings - run on a throwaway copy of commit e0c8e31 (Linux, Python 3.13.18)
+
+## COR-1 duplicate check-ins
+$ python -c "from datetime import date as D; from habit_tracker.tracker import *; t=D(2026,11,21); h=[]; add_habit(h,'R',t); [check_in(h,'R',t) for _ in range(8)]; print(weekly_completion(h[0],t), current_streak(h[0],t), len(h[0].checkins))"
+114 1 8
+[exit code: 0]
+
+## COR-2 broken data file blocks every command, incl. reset
+$ mkdir -p data && echo '{broken' > data/habits.json && python -m habit_tracker.cli reset
+    obj, end = self.scan_once(s, idx)
+               ~~~~~~~~~~~~~~^^^^^^^^
+json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+[exit code: 1]
+
+$ ls data/
+habits.json
+[exit code: 0]
+
+$ python -m habit_tracker.cli --help
+options:
+  -h, --help            show this help message and exit
+[exit code: 0]
+
+$ echo '[{"name":"R","created":"2026-11-21","checkins":[],"extra":1}]' > data/habits.json && python -m habit_tracker.cli report
+            ~~~~~^^^^^^^^
+TypeError: Habit.__init__() got an unexpected keyword argument 'extra'
+[exit code: 1]
+
+$ rm -rf data
+[exit code: 0]
+
+## COR-3 interrupted save truncates file
+$ python /tmp/cor3.py
+Traceback (most recent call last):
+  File "/tmp/cor3.py", line 3, in <module>
+    from habit_tracker import storage
+ModuleNotFoundError: No module named 'habit_tracker'
+[exit code: 1]
+
+## SEC-1 export --out overwrites the data store
+$ python -m habit_tracker.cli add Read && python -m habit_tracker.cli export --format csv --out data/habits.json && python -m habit_tracker.cli report
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+[exit code: 1]
+
+$ rm -rf data
+[exit code: 0]
+
+## SEC-2 CSV formula injection
+$ python -c "from habit_tracker.exporter import export; from habit_tracker.models import Habit; print(export([Habit('=1+1','2026-11-21')], 'csv'))"
+name,created,streak,weekly_percent
+=1+1,2026-11-21,0,0
+
+[exit code: 0]
+
+## DEP-1 unpinned / undeclared tools
+$ cat requirements.txt; grep -nE 'ruff|mypy|coverage' requirements.txt || echo 'not listed'; ls pyproject.toml setup.cfg
+pytest
+not listed
+ls: cannot access 'pyproject.toml': No such file or directory
+ls: cannot access 'setup.cfg': No such file or directory
+[exit code: 2]
+
+$ grep -n 'Requirement already satisfied' docs/evidence/task1_baseline.txt | head -2
+9:Requirement already satisfied: pytest in ~/venv/lib/python3.13/site-packages (from -r requirements.txt (line 1)) (9.2.0)
+10:Requirement already satisfied: iniconfig>=2 in ~/venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (2.3.1)
+[exit code: 0]
+
+## MNT-1 test isolation gaps
+$ grep -rn 'reset' tests/ || echo 'no reset in tests'; grep -n 'date.today' tests/test_cli.py
+no reset in tests
+44:    today = date.today().isoformat()
+[exit code: 0]
+
+$ python -c "import inspect; from habit_tracker import storage; print(inspect.signature(storage.reset))"
+(path='<copy>/habit_tracker/../data/habits.json')
+[exit code: 0]
+
+## AGT-1 guardrails are prose only
+$ ls -a | grep -E '^\.claude$|^\.github$|^pyproject' || echo 'none present'; grep -nE 'input\(|confirm|--yes' habit_tracker/cli.py || echo 'no confirmation'
+none present
+no confirmation
+[exit code: 0]
+
+$ mkdir -p data && python -m habit_tracker.cli add Read >/dev/null && python -m habit_tracker.cli reset && ls data
+All data deleted
+[exit code: 0]
+
+$ rm -rf data
+[exit code: 0]
+
+## AGT-2 acceptance criteria not self-guarding
+$ grep -rn 'AC3' tests/ || echo 'no AC3 test'; grep -n '≥ 6' docs/01-baseline.md; python -m pytest --collect-only -q | tail -1
+no AC3 test
+80:| AC5 | All existing tests still pass and none are deleted or weakened. | `python -m pytest -v` shows ≥ 6 passed, 0 failed. |
+16 tests collected in 0.03s
+[exit code: 0]
+
+## Extra: save_habits with bare filename
+$ cd /tmp && python -c "import sys; sys.path.insert(0,'<copy>'); from habit_tracker import storage; storage.save_habits([], 'habits.json')"
+  File "<frozen os>", line 228, in makedirs
+FileNotFoundError: [Errno 2] No such file or directory: ''
+[exit code: 1]
+
+## Extra: streak is 0 until checked in today
+$ python -c "from datetime import date as D; from habit_tracker.tracker import *; h=[]; add_habit(h,'R',D(2026,11,1)); [check_in(h,'R',D(2026,11,d)) for d in range(10,21)]; print('streak on 21st before check-in:', current_streak(h[0],D(2026,11,21)))"
+streak on 21st before check-in: 0
+[exit code: 0]
+
+## Extra: invalid input -> tracebacks / empty name accepted
+$ python -m habit_tracker.cli done Nope
+ValueError: No habit called 'Nope'
+[exit code: 1]
+
+$ python -m habit_tracker.cli done Read --date 2026-13-40
+ValueError: month must be in 1..12
+[exit code: 1]
+
+$ python -m habit_tracker.cli add '' && python -m habit_tracker.cli report | cat -A
+Added habit: 
+                     streak:   0  week:   0%$
+[exit code: 0]
+
+$ rm -rf data
+[exit code: 0]
+
+
+## COR-3 rerun (first attempt above failed because of my script setup: package not on sys.path, not a project result)
+$ PYTHONPATH=. python /tmp/cor3.py
+before: 76 bytes
+after interrupted save: ''
+[exit code: 0]

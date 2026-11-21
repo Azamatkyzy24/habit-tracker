@@ -32,7 +32,14 @@ Results match the Linux run, so W2 is confirmed on both platforms.
 
 ## 2. Checks run on the baseline
 
-Environment: Python 3.13.18, fresh virtual environment, Linux.
+Environment: Python 3.13.18, Linux, a new virtual environment into which `requirements.txt`
+(plus ruff, mypy) had been installed just before the logged run.
+
+> **Correction (found in the Task 4 AI review, finding DEP-1):** this section and the log header
+> originally said "fresh/clean virtual environment". That was inaccurate: the log shows
+> "Requirement already satisfied", so it does not prove that `requirements.txt` alone installs
+> everything from scratch. The log file itself is left unchanged as recorded evidence.
+> The Windows run below *does* show a from-scratch install (`Successfully installed ... pytest-9.2.0`).
 
 | Check | Command | Result |
 |---|---|---|
