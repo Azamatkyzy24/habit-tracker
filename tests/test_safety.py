@@ -55,3 +55,47 @@ def test_interrupted_save_keeps_old_data(data_path):
     assert data_path.read_text() == before                   # old data still complete
     assert [h.name for h in storage.load_habits()] == ["Read"]
     assert sorted(p.name for p in data_path.parent.iterdir()) == ["habits.json"]  # no temp file left
+
+
+# ---------- Mitigation 2: R3 export --out overwrites files, R5 encoding / line endings ----------
+
+def test_export_refuses_to_overwrite_existing_file(data_path, tmp_path, capsys):
+    cli.main(["add", "Read"])
+    out = tmp_path / "notes.txt"
+    out.write_text("my notes")
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["export", "--out", str(out)])
+    assert exc.value.code == 1
+    assert "already exists" in capsys.readouterr().err
+    assert out.read_text() == "my notes"          # untouched
+
+
+def test_export_force_overwrites_existing_file(data_path, tmp_path):
+    cli.main(["add", "Read"])
+    out = tmp_path / "old.csv"
+    out.write_text("old")
+    cli.main(["export", "--out", str(out), "--force"])
+    assert out.read_text(encoding="utf-8").startswith("name,created,streak,weekly_percent")
+
+
+def test_export_never_overwrites_the_data_file(data_path, capsys):
+    cli.main(["add", "Read"])
+    before = data_path.read_text()
+    for extra in ([], ["--force"]):               # refused even with --force
+        with pytest.raises(SystemExit) as exc:
+            cli.main(["export", "--format", "csv", "--out", str(data_path), *extra])
+        assert exc.value.code == 1
+        assert "data file" in capsys.readouterr().err
+    assert data_path.read_text() == before
+    assert [h.name for h in storage.load_habits()] == ["Read"]
+
+
+def test_export_file_is_utf8_with_single_crlf(data_path, tmp_path):
+    # On Windows the old code wrote "\r\r\n" and crashed on Kazakh letters (cp1251), see Task 4 COR-4.
+    cli.main(["add", "Әдет"])
+    out = tmp_path / "out.csv"
+    cli.main(["export", "--format", "csv", "--out", str(out)])
+    raw = out.read_bytes()
+    assert "Әдет".encode() in raw              # str.encode() is always UTF-8
+    assert b"\r\r\n" not in raw
+    assert raw.count(b"\r\n") == 2                # header + 1 row

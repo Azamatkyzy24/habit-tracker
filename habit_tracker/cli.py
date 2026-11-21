@@ -1,9 +1,18 @@
 import argparse
+import os
 from datetime import date
 
 from . import storage
 from .exporter import FORMATTERS, export
 from .tracker import add_habit, check_in
+
+
+def _is_data_file(path):
+    """True if path points to the habit data file (also via another spelling or a link)."""
+    data = storage.DATA_FILE
+    if os.path.exists(path) and os.path.exists(data):
+        return os.path.samefile(path, data)
+    return os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(data))
 
 
 def main(argv=None):
@@ -23,6 +32,7 @@ def main(argv=None):
     p_export = sub.add_parser("export", help="export habits to csv/json/text")
     p_export.add_argument("--format", default="csv", choices=FORMATTERS)
     p_export.add_argument("--out", help="output file (default: print)")
+    p_export.add_argument("--force", action="store_true", help="overwrite --out if it already exists")
 
     sub.add_parser("reset", help="delete all data")
 
@@ -53,7 +63,11 @@ def main(argv=None):
     elif args.command == "export":
         data = export(habits, args.format)
         if args.out:
-            with open(args.out, "w") as f:
+            if _is_data_file(args.out):
+                parser.exit(1, "error: --out must not be the habit data file\n")
+            if os.path.exists(args.out) and not args.force:
+                parser.exit(1, f"error: {args.out} already exists (use --force to overwrite)\n")
+            with open(args.out, "w", encoding="utf-8", newline="") as f:
                 f.write(data)
             print(f"Exported to {args.out}")
         else:

@@ -1,0 +1,17 @@
+# Task 7 mitigation 2 - BEFORE: new tests against code with mitigation 1 only (commit f3a9b79), throwaway copy, Linux
+$ python -m pytest tests/test_safety.py -v
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[{broken] PASSED [  9%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[] PASSED  [ 18%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[[{"name": "R", "created": "2026-11-21", "checkins": [], "extra": 1}]] PASSED [ 27%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[[{"name": "R"}]] PASSED [ 36%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[{"name": "R"}] PASSED [ 45%]
+tests/test_safety.py::test_reset_works_when_data_file_is_damaged PASSED  [ 54%]
+tests/test_safety.py::test_interrupted_save_keeps_old_data PASSED        [ 63%]
+tests/test_safety.py::test_export_refuses_to_overwrite_existing_file FAILED [ 72%]
+tests/test_safety.py::test_export_force_overwrites_existing_file FAILED  [ 81%]
+tests/test_safety.py::test_export_never_overwrites_the_data_file FAILED  [ 90%]
+tests/test_safety.py::test_export_file_is_utf8_with_single_crlf PASSED   [100%]
+E       Failed: DID NOT RAISE SystemExit
+E       SystemExit: 2
+E           Failed: DID NOT RAISE SystemExit
+========================= 3 failed, 8 passed in 0.13s ==========================
