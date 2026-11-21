@@ -1,0 +1,17 @@
+# Task 7 mitigation 1 - BEFORE: new tests run against unfixed code (commit 50ec99d), throwaway copy
+$ python -m pytest tests/test_safety.py -v
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[{broken] FAILED [ 14%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[] FAILED  [ 28%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[[{"name": "R", "created": "2026-11-21", "checkins": [], "extra": 1}]] FAILED [ 42%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[[{"name": "R"}]] FAILED [ 57%]
+tests/test_safety.py::test_damaged_data_file_gives_clear_error[{"name": "R"}] FAILED [ 71%]
+tests/test_safety.py::test_reset_works_when_data_file_is_damaged FAILED  [ 85%]
+tests/test_safety.py::test_interrupted_save_keeps_old_data FAILED        [100%]
+FAILED tests/test_safety.py::test_damaged_data_file_gives_clear_error[{broken]
+FAILED tests/test_safety.py::test_damaged_data_file_gives_clear_error[] - Fai...
+FAILED tests/test_safety.py::test_damaged_data_file_gives_clear_error[[{"name": "R", "created": "2026-11-21", "checkins": [], "extra": 1}]]
+FAILED tests/test_safety.py::test_damaged_data_file_gives_clear_error[[{"name": "R"}]]
+FAILED tests/test_safety.py::test_damaged_data_file_gives_clear_error[{"name": "R"}]
+FAILED tests/test_safety.py::test_reset_works_when_data_file_is_damaged - Ass...
+FAILED tests/test_safety.py::test_interrupted_save_keeps_old_data - FileNotFo...
+============================== 7 failed in 0.13s ===============================

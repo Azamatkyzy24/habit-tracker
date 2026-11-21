@@ -27,7 +27,12 @@ def main(argv=None):
     sub.add_parser("reset", help="delete all data")
 
     args = parser.parse_args(argv)
-    habits = storage.load_habits()
+    habits = []
+    if args.command not in (None, "reset"):  # reset must still work when the file is damaged
+        try:
+            habits = storage.load_habits()
+        except storage.DataFileError as e:
+            parser.exit(1, f"error: {e}\nFix the file by hand, or run 'reset' to delete it and start over.\n")
 
     if args.command == "add":
         add_habit(habits, args.name)
