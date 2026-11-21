@@ -18,6 +18,18 @@
 
 Size: 289 lines in 10 tracked files.
 
+### Independent re-run on Windows (by me, Azamatkyzy Aidana)
+
+Windows 11, PowerShell, Python 3.13.17, 21 Nov 2026 22:42 (UTC+5):
+
+- `python -m pip install -r requirements.txt` → installed pytest 9.2.0
+- `python -m pytest -v` → **6 passed in 0.08s**
+- `pytest -q` → **same `ModuleNotFoundError: No module named 'habit_tracker'`**
+
+Screenshots: [`task1_windows_install_and_tests.png`](evidence/task1_windows_install_and_tests.png),
+[`task1_windows_pytest_error.png`](evidence/task1_windows_pytest_error.png).
+Results match the Linux run, so W2 is confirmed on both platforms.
+
 ## 2. Checks run on the baseline
 
 Environment: Python 3.13.18, fresh virtual environment, Linux.
@@ -47,11 +59,10 @@ Environment: Python 3.13.18, fresh virtual environment, Linux.
 
 ## 4. Facts vs assumptions vs unverified suggestions
 
-**Observed facts** (from commands above): W1–W6; 6/6 tests pass with `python -m pytest`; CLI works via `python -m habit_tracker.cli`.
+**Observed facts** (from commands above): W1–W6; 6/6 tests pass with `python -m pytest` on Linux **and Windows**; CLI works via `python -m habit_tracker.cli`.
 
 **Assumptions** (not yet checked):
 - The app is single-user and local only; nobody else writes to `data/habits.json`.
-- Behaviour on Windows is the same as on Linux.
 - Python 3.10+ is needed (code style suggests it; no minimum version is declared).
 
 **Unverified AI suggestions** (to investigate in Task 4, not counted as findings yet):
