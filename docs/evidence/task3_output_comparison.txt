@@ -1,0 +1,11 @@
+# Task 3: baseline vs refactored CLI output on the same data file (2 habits)
+IDENTICAL  : habits report
+IDENTICAL  : habits report --format text
+DIFFERENT  : habits report --format json
+3a4
+>     "created": "2026-11-15",
+8a10
+>     "created": "2026-11-15",
+IDENTICAL  : habits export --format csv
+IDENTICAL  : habits export --format json
+IDENTICAL  : habits export --format text

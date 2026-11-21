@@ -1,0 +1,67 @@
+# Task 3 AFTER refactor
+$ python -m pytest -v
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0 -- ~/venv/bin/python
+cachedir: .pytest_cache
+rootdir: ~/habit-tracker
+collecting ... collected 16 items
+
+tests/test_cli.py::test_cli_add_done_report_text PASSED                  [  6%]
+tests/test_cli.py::test_cli_report_with_no_habits_prints_nothing PASSED  [ 12%]
+tests/test_cli.py::test_cli_report_text_same_as_export_text PASSED       [ 18%]
+tests/test_cli.py::test_cli_report_json_values PASSED                    [ 25%]
+tests/test_cli.py::test_cli_export_to_file PASSED                        [ 31%]
+tests/test_cli.py::test_export_csv_columns_and_values PASSED             [ 37%]
+tests/test_cli.py::test_export_json_columns PASSED                       [ 43%]
+tests/test_cli.py::test_export_text PASSED                               [ 50%]
+tests/test_cli.py::test_export_unknown_format_raises PASSED              [ 56%]
+tests/test_cli.py::test_cli_unknown_format_rejected_consistently PASSED  [ 62%]
+tests/test_tracker.py::test_add_habit PASSED                             [ 68%]
+tests/test_tracker.py::test_add_duplicate_habit_raises PASSED            [ 75%]
+tests/test_tracker.py::test_streak_three_days PASSED                     [ 81%]
+tests/test_tracker.py::test_weekly_completion PASSED                     [ 87%]
+tests/test_tracker.py::test_export_json PASSED                           [ 93%]
+tests/test_tracker.py::test_save_and_load PASSED                         [100%]
+
+============================== 16 passed in 0.06s ==============================
+[exit code: 0]
+
+$ ruff check --isolated .
+All checks passed!
+[exit code: 0]
+
+$ mypy habit_tracker
+Success: no issues found in 6 source files
+[exit code: 0]
+
+$ python -m coverage run --source=habit_tracker -m pytest -q
+................                                                         [100%]
+16 passed in 0.06s
+[exit code: 0]
+
+$ python -m coverage report
+Name                        Stmts   Miss  Cover
+-----------------------------------------------
+habit_tracker/__init__.py       1      0   100%
+habit_tracker/cli.py           47      5    89%
+habit_tracker/exporter.py      22      0   100%
+habit_tracker/models.py         6      0   100%
+habit_tracker/storage.py       17      2    88%
+habit_tracker/tracker.py       38      1    97%
+-----------------------------------------------
+TOTAL                         131      8    94%
+[exit code: 0]
+
+# Duplicated format conditionals (grep 'format ==|fmt ==') before vs after
+before (tag baseline):
+habit_tracker/cli.py:45:        if args.format == "text":
+habit_tracker/cli.py:48:        elif args.format == "json":
+habit_tracker/exporter.py:9:    if fmt == "json":
+habit_tracker/exporter.py:19:    elif fmt == "csv":
+habit_tracker/exporter.py:26:    elif fmt == "text":
+after:
+  (none)
+
+# Line counts before -> after
+cli.py: 78 -> 66
+exporter.py: 32 -> 52

@@ -93,3 +93,13 @@ def test_export_text():
 def test_export_unknown_format_raises():
     with pytest.raises(ValueError):
         export(make_habits(), "xml", TODAY)
+
+
+def test_cli_unknown_format_rejected_consistently(data_file, capsys):
+    # Added with the Task 3 refactor: both commands now reject a bad format the same
+    # way (argparse error, exit code 2) instead of "Unknown format"+exit 0 / traceback.
+    for command in ("report", "export"):
+        with pytest.raises(SystemExit) as exc:
+            cli.main([command, "--format", "xml"])
+        assert exc.value.code == 2
+        assert "invalid choice: 'xml'" in capsys.readouterr().err

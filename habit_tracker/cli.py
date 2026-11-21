@@ -1,10 +1,9 @@
 import argparse
-import json
 from datetime import date
 
 from . import storage
-from .exporter import export
-from .tracker import add_habit, check_in, current_streak, weekly_completion
+from .exporter import FORMATTERS, export
+from .tracker import add_habit, check_in
 
 
 def main(argv=None):
@@ -19,10 +18,10 @@ def main(argv=None):
     p_done.add_argument("--date", help="YYYY-MM-DD (default: today)")
 
     p_report = sub.add_parser("report", help="show streaks and weekly progress")
-    p_report.add_argument("--format", default="text")
+    p_report.add_argument("--format", default="text", choices=FORMATTERS)
 
     p_export = sub.add_parser("export", help="export habits to csv/json/text")
-    p_export.add_argument("--format", default="csv")
+    p_export.add_argument("--format", default="csv", choices=FORMATTERS)
     p_export.add_argument("--out", help="output file (default: print)")
 
     sub.add_parser("reset", help="delete all data")
@@ -42,20 +41,9 @@ def main(argv=None):
         print(f"Checked in '{args.name}' for {day.isoformat()}")
 
     elif args.command == "report":
-        if args.format == "text":
-            for h in habits:
-                print(f"{h.name:<20} streak: {current_streak(h):>3}  week: {weekly_completion(h):>3}%")
-        elif args.format == "json":
-            rows = []
-            for h in habits:
-                rows.append({
-                    "name": h.name,
-                    "streak": current_streak(h),
-                    "weekly_percent": weekly_completion(h),
-                })
-            print(json.dumps(rows, indent=2))
-        else:
-            print("Unknown format")
+        output = export(habits, args.format)
+        if output:
+            print(output)
 
     elif args.command == "export":
         data = export(habits, args.format)
