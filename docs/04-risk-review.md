@@ -5,7 +5,7 @@
 | Item | Detail |
 |---|---|
 | Reviewer | A **separate, fresh** Claude chat (claude.ai, free plan, 21 Nov 2026) with no access to this project's main conversation |
-| Input | `habit-tracker-main.zip` downloaded from GitHub at commit `e0c8e31` (after Task 3) |
+| Input | `habit-tracker-main.zip` downloaded from GitHub at commit `0309ee3` (after Task 3; GitHub commit ID) |
 | Prompt | Read-only review: "do NOT rewrite files, do NOT produce patches"; 8–10 risks across correctness, maintainability, security, dependency, agent operations; cause → event → consequence, location, reproduction command, confidence; "do not invent test results" |
 | Did it modify files? | No. It read files with `unzip -p` and produced no code changes. It marked every expected output "not executed". |
 | Output | 10 numbered findings + 4 extra notes — full text in the AI evidence appendix |
