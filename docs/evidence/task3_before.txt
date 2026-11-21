@@ -1,0 +1,22 @@
+# Task 3 BEFORE refactor: characterization tests on unchanged production code
+$ git diff --stat HEAD -- habit_tracker   (empty = production code unchanged)
+$ python -m pytest -v
+collecting ... collected 15 items
+
+tests/test_cli.py::test_cli_add_done_report_text PASSED                  [  6%]
+tests/test_cli.py::test_cli_report_with_no_habits_prints_nothing PASSED  [ 13%]
+tests/test_cli.py::test_cli_report_text_same_as_export_text PASSED       [ 20%]
+tests/test_cli.py::test_cli_report_json_values PASSED                    [ 26%]
+tests/test_cli.py::test_cli_export_to_file PASSED                        [ 33%]
+tests/test_cli.py::test_export_csv_columns_and_values PASSED             [ 40%]
+tests/test_cli.py::test_export_json_columns PASSED                       [ 46%]
+tests/test_cli.py::test_export_text PASSED                               [ 53%]
+tests/test_cli.py::test_export_unknown_format_raises PASSED              [ 60%]
+tests/test_tracker.py::test_add_habit PASSED                             [ 66%]
+tests/test_tracker.py::test_add_duplicate_habit_raises PASSED            [ 73%]
+tests/test_tracker.py::test_streak_three_days PASSED                     [ 80%]
+tests/test_tracker.py::test_weekly_completion PASSED                     [ 86%]
+tests/test_tracker.py::test_export_json PASSED                           [ 93%]
+tests/test_tracker.py::test_save_and_load PASSED                         [100%]
+
+============================== 15 passed in 0.06s ==============================
