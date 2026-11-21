@@ -1,0 +1,160 @@
+# Task 1 baseline checks - commit tree d9e2ed5a (GitHub commit b2aa99e, tag baseline)
+# Run on: Linux, 2026-11-21 17:26 UTC, clean virtual environment
+
+$ python --version
+Python 3.13.18
+[exit code: 0]
+
+$ pip install -r requirements.txt
+Requirement already satisfied: pytest in ~/venv/lib/python3.13/site-packages (from -r requirements.txt (line 1)) (9.2.0)
+Requirement already satisfied: iniconfig>=2 in ~/venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (2.3.1)
+Requirement already satisfied: packaging>=24 in ~/venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (26.3)
+Requirement already satisfied: pluggy<2,>=1.6 in ~/venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (1.7.0)
+Requirement already satisfied: pygments>=2.15 in ~/venv/lib/python3.13/site-packages (from pytest->-r requirements.txt (line 1)) (2.21.0)
+[exit code: 0]
+
+$ pip show pytest
+Name: pytest
+Version: 9.2.0
+Summary: pytest: simple powerful testing with Python
+Home-page: https://docs.pytest.org/en/latest/
+Author: Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt
+Author-email: 
+License-Expression: MIT
+Location: ~/venv/lib/python3.13/site-packages
+Requires: iniconfig, packaging, pluggy, pygments
+Required-by: 
+[exit code: 0]
+
+$ python -m pytest -v
+============================= test session starts ==============================
+platform linux -- Python 3.13.18, pytest-9.2.0, pluggy-1.7.0 -- ~/venv/bin/python
+cachedir: .pytest_cache
+rootdir: ~/habit-tracker
+collecting ... collected 6 items
+
+tests/test_tracker.py::test_add_habit PASSED                             [ 16%]
+tests/test_tracker.py::test_add_duplicate_habit_raises PASSED            [ 33%]
+tests/test_tracker.py::test_streak_three_days PASSED                     [ 50%]
+tests/test_tracker.py::test_weekly_completion PASSED                     [ 66%]
+tests/test_tracker.py::test_export_json PASSED                           [ 83%]
+tests/test_tracker.py::test_save_and_load PASSED                         [100%]
+
+============================== 6 passed in 0.03s ===============================
+[exit code: 0]
+
+$ pytest -q
+
+==================================== ERRORS ====================================
+____________________ ERROR collecting tests/test_tracker.py ____________________
+ImportError while importing test module '~/habit-tracker/tests/test_tracker.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/local/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_tracker.py:6: in <module>
+    from habit_tracker import storage
+E   ModuleNotFoundError: No module named 'habit_tracker'
+=========================== short test summary info ============================
+ERROR tests/test_tracker.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.07s
+[exit code: 2]
+
+$ ruff check --isolated .
+All checks passed!
+[exit code: 0]
+
+$ mypy habit_tracker
+Success: no issues found in 6 source files
+[exit code: 0]
+
+$ mypy --check-untyped-defs habit_tracker
+Success: no issues found in 6 source files
+[exit code: 0]
+
+$ python -m compileall -q habit_tracker
+[exit code: 0]
+
+$ python main.py report
+python: can't open file '~/habit-tracker/main.py': [Errno 2] No such file or directory
+[exit code: 2]
+
+$ python -m habit_tracker.cli --help
+usage: habits [-h] {add,done,report,export,reset} ...
+
+Simple habit tracker
+
+positional arguments:
+  {add,done,report,export,reset}
+    add                 add a new habit
+    done                mark a habit as done
+    report              show streaks and weekly progress
+    export              export habits to csv/json/text
+    reset               delete all data
+
+options:
+  -h, --help            show this help message and exit
+[exit code: 0]
+
+
+$ python -m coverage run -m pytest -q && python -m coverage report -m
+6 passed in 0.03s
+Name                        Stmts   Miss  Cover   Missing
+---------------------------------------------------------
+habit_tracker/__init__.py       1      0   100%
+habit_tracker/exporter.py      23     13    43%   19-32
+habit_tracker/models.py         6      0   100%
+habit_tracker/storage.py       17      3    82%   11, 24-25
+habit_tracker/tracker.py       38      1    97%   26
+tests/test_tracker.py          44      0   100%
+---------------------------------------------------------
+TOTAL                         129     17    87%
+
+# Project files (git ls-files) and line counts
+   5 .gitignore
+  27 README.md
+   3 habit_tracker/__init__.py
+  78 habit_tracker/cli.py
+  32 habit_tracker/exporter.py
+   8 habit_tracker/models.py
+  25 habit_tracker/storage.py
+  51 habit_tracker/tracker.py
+   1 requirements.txt
+  59 tests/test_tracker.py
+ 289 total
+
+# Smoke run of the real CLI (temporary data file removed after)
+$ python -m habit_tracker.cli add Read
+Added habit: Read
+[exit code: 0]
+$ python -m habit_tracker.cli done Read
+Checked in 'Read' for 2026-11-21
+[exit code: 0]
+$ python -m habit_tracker.cli report
+Read                 streak:   1  week:  14%
+[exit code: 0]
+$ python -m habit_tracker.cli export --format json
+[
+  {
+    "name": "Read",
+    "created": "2026-11-21",
+    "streak": 1,
+    "weekly_percent": 14
+  }
+]
+[exit code: 0]
+
+$ python -m coverage run --source=habit_tracker -m pytest -q && python -m coverage report -m
+6 passed in 0.03s
+Name                        Stmts   Miss  Cover   Missing
+---------------------------------------------------------
+habit_tracker/__init__.py       1      0   100%
+habit_tracker/cli.py           54     54     0%   1-78
+habit_tracker/exporter.py      23     13    43%   19-32
+habit_tracker/models.py         6      0   100%
+habit_tracker/storage.py       17      3    82%   11, 24-25
+habit_tracker/tracker.py       38      1    97%   26
+---------------------------------------------------------
+TOTAL                         139     71    49%
