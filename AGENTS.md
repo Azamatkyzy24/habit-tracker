@@ -1,7 +1,7 @@
 # AGENTS.md — instructions for AI coding agents
 
 Read this file before changing anything in this repository. If something here
-conflicts with `README.md`, **this file wins** (the README is known to be outdated).
+conflicts with `README.md`, **this file wins**.
 
 ## 1. Purpose
 
@@ -22,7 +22,10 @@ habit_tracker/
   storage.py   load_habits / save_habits / reset  (JSON file, data/habits.json)
   models.py    Habit dataclass: name, created (ISO date), checkins (list of ISO dates)
 tests/
-  test_tracker.py   pytest tests
+  test_tracker.py   business logic, JSON export, save/load
+  test_cli.py       CLI end-to-end and export formats (redirects load/save)
+  test_safety.py    damaged data file, atomic save, export --out safety
+                    (redirects storage.DATA_FILE to a temp folder - copy this fixture)
 docs/               assignment write-ups and evidence (not code)
 ```
 
@@ -53,8 +56,8 @@ python -m pip install -r requirements.txt
 | Show CLI help | `python -m habit_tracker.cli --help` |
 | Read-only git | `git status`, `git diff`, `git log` |
 
-Do **not** use the README commands `pytest` (fails: `ModuleNotFoundError`) or
-`python main.py` (file does not exist).
+Do **not** use plain `pytest` (fails: `ModuleNotFoundError`) or `python main.py`
+(file does not exist) — older versions of the README showed these.
 
 Trying the CLI by hand writes to the real `data/habits.json`. Only do it if the user
 asks, and never run `reset` (see section 7).
