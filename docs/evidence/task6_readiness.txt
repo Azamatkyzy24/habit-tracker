@@ -1,0 +1,111 @@
+# Task 6 agent-readiness evidence - commit f3be64d (Linux, Python 3.13.18)
+
+$ git ls-files | grep -v '^docs/evidence' 
+.gitignore
+AGENTS.md
+CLAUDE.md
+README.md
+docs/01-baseline.md
+docs/02-agent-instructions.md
+docs/03-pattern-decision.md
+docs/04-risk-review.md
+docs/05-risk-register.md
+habit_tracker/__init__.py
+habit_tracker/cli.py
+habit_tracker/exporter.py
+habit_tracker/models.py
+habit_tracker/storage.py
+habit_tracker/tracker.py
+requirements.txt
+tests/test_cli.py
+tests/test_tracker.py
+[exit code: 0]
+
+$ grep -n 'main.py\|^pytest' README.md
+15:python main.py add "Read 20 pages"
+16:python main.py done "Read 20 pages"
+17:python main.py report
+18:python main.py export --format csv --out habits.csv
+26:pytest
+[exit code: 0]
+
+$ cat requirements.txt; ls pyproject.toml setup.cfg requirements-dev.txt .python-version 2>&1
+pytest
+ls: cannot access 'pyproject.toml': No such file or directory
+ls: cannot access 'setup.cfg': No such file or directory
+ls: cannot access 'requirements-dev.txt': No such file or directory
+ls: cannot access '.python-version': No such file or directory
+[exit code: 2]
+
+$ python -m pytest -q
+................                                                         [100%]
+16 passed in 0.06s
+[exit code: 0]
+
+$ pytest -q
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+2 errors in 0.11s
+[exit code: 2]
+
+$ ruff check --isolated .
+All checks passed!
+[exit code: 0]
+
+$ mypy habit_tracker
+Success: no issues found in 6 source files
+[exit code: 0]
+
+$ python -m compileall -q habit_tracker
+[exit code: 0]
+
+$ python -m coverage run --source=habit_tracker -m pytest -q >/dev/null; python -m coverage report | tail -1
+TOTAL                         131      8    94%
+[exit code: 0]
+
+$ grep -rn 'import logging\|logging\.' habit_tracker || echo 'no logging module used'; grep -c 'print(' habit_tracker/cli.py
+no logging module used
+6
+[exit code: 0]
+
+$ ls -a | grep -E '^\.github$|^\.claude$|^\.pre-commit' || echo 'no CI, no agent settings/hooks, no pre-commit'
+no CI, no agent settings/hooks, no pre-commit
+[exit code: 0]
+
+$ grep -rniE 'api[_-]?key|secret|password|token' --include=*.py . || echo 'no secret-like strings in code'; cat .gitignore
+no secret-like strings in code
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+.venv/
+[exit code: 0]
+
+$ grep -n '^## ' AGENTS.md
+14:## 2. Architecture
+35:## 3. Setup
+45:## 4. Safe commands (allowed without asking)
+62:## 5. Coding conventions
+72:## 6. Test expectations
+84:## 7. Forbidden actions
+101:## 8. Permissions and review gates
+117:## 9. What the agent must report after a task
+[exit code: 0]
+
+$ grep -n 'test_tracker.py\|test_cli' AGENTS.md
+25:  test_tracker.py   pytest tests
+[exit code: 0]
+
+## Re-run: the heading list above was cut to 8 lines by my script (tail -8); full list:
+$ grep -n '^## ' AGENTS.md
+6:## 1. Purpose
+14:## 2. Architecture
+35:## 3. Setup
+45:## 4. Safe commands (allowed without asking)
+62:## 5. Coding conventions
+72:## 6. Test expectations
+84:## 7. Forbidden actions
+101:## 8. Permissions and review gates
+117:## 9. What the agent must report after a task
+
+$ grep -nE '^\.env|\.coverage|_cache' .gitignore || echo 'not ignored: .env, .coverage, .mypy_cache, .ruff_cache'
+3:.pytest_cache/
