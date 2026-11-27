@@ -42,7 +42,9 @@ def make_habits():
 def test_cli_add_done_report_text(data_file, capsys):
     assert run_cli(capsys, "add", "Read") == "Added habit: Read\n"
     today = date.today().isoformat()
-    assert run_cli(capsys, "done", "Read") == f"Checked in 'Read' for {today}\n"
+    assert run_cli(capsys, "done", "Read") == (
+        f"Checked in 'Read' for {today} - streak: 1 days, this week: 14%\n"
+    )
     assert run_cli(capsys, "report") == "Read                 streak:   1  week:  14%\n"
 
 

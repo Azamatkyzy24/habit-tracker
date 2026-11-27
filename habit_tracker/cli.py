@@ -3,8 +3,9 @@ import os
 from datetime import date
 
 from . import storage
-from .exporter import FORMATTERS, export
+from .exporter import FORMATTERS, export, format_checkin
 from .tracker import add_habit, check_in
+from .validation import parse_checkin_date, validate_name
 
 
 def _is_data_file(path):
@@ -50,10 +51,15 @@ def main(argv=None):
         print(f"Added habit: {args.name}")
 
     elif args.command == "done":
-        day = date.fromisoformat(args.date) if args.date else date.today()
-        check_in(habits, args.name, day)
+        today = date.today()
+        try:
+            name = validate_name(args.name)               # 1. validation
+            day = parse_checkin_date(args.date, today)
+            habit = check_in(habits, name, day)           # 2. core logic
+        except ValueError as e:
+            parser.exit(1, f"error: {e}\n")              # 3. output (error)
         storage.save_habits(habits)
-        print(f"Checked in '{args.name}' for {day.isoformat()}")
+        print(format_checkin(habit, day, today))          # 3. output (success)
 
     elif args.command == "report":
         output = export(habits, args.format)

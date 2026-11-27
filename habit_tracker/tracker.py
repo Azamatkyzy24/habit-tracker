@@ -19,11 +19,18 @@ def add_habit(habits, name, today=None):
     return habit
 
 
+class DuplicateCheckinError(ValueError):
+    """The habit already has a check-in for that day."""
+
+
 def check_in(habits, name, day=None):
+    """Add one check-in. A habit can have at most one check-in per day."""
     day = day or date.today()
     habit = find_habit(habits, name)
     if habit is None:
         raise ValueError(f"No habit called '{name}'")
+    if day.isoformat() in habit.checkins:
+        raise DuplicateCheckinError(f"Already checked in '{name}' for {day.isoformat()}")
     habit.checkins.append(day.isoformat())
     return habit
 
@@ -44,8 +51,8 @@ def weekly_completion(habit, today=None):
     """Percent of the last 7 days (including today) with a check-in."""
     today = today or date.today()
     start = today - timedelta(days=6)
-    count = 0
+    days_in_week = set()  # a set, so a day is counted once even if old data repeats it
     for c in habit.checkins:
         if start.isoformat() <= c <= today.isoformat():
-            count += 1
-    return round(count / 7 * 100)
+            days_in_week.add(c)
+    return round(len(days_in_week) / 7 * 100)

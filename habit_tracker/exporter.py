@@ -50,3 +50,10 @@ def export(habits, fmt, today=None):
     if fmt not in FORMATTERS:
         raise ValueError(f"Unknown format: {fmt}")
     return FORMATTERS[fmt](_rows(habits, today))
+
+
+def format_checkin(habit, day, today=None):
+    """Confirmation line shown after a successful check-in."""
+    streak = current_streak(habit, today)
+    week = weekly_completion(habit, today)
+    return f"Checked in '{habit.name}' for {day.isoformat()} - streak: {streak} days, this week: {week}%"
