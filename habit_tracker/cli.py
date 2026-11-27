@@ -58,7 +58,10 @@ def main(argv=None):
             habit = check_in(habits, name, day)           # 2. core logic
         except ValueError as e:
             parser.exit(1, f"error: {e}\n")              # 3. output (error)
-        storage.save_habits(habits)
+        try:
+            storage.save_habits(habits)
+        except OSError as e:                              # A06 review finding CHK-2
+            parser.exit(1, f"error: could not save the data file ({e.strerror or e})\n")
         print(format_checkin(habit, day, today))          # 3. output (success)
 
     elif args.command == "report":

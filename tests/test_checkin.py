@@ -137,3 +137,32 @@ def test_cli_duplicate_exit_1_and_nothing_saved(data_file, capsys):
     assert exc.value.code == 1
     assert "error: Already checked in 'Read'" in capsys.readouterr().err
     assert len(storage.load_habits()[0].checkins) == 1
+
+
+# ---------- Added after the agentic code review (Task 5) ----------
+
+def test_cli_done_with_past_date_is_saved(data_file, capsys):
+    """CHK-9: a successful --date check-in through the CLI is printed and saved."""
+    cli.main(["add", "Read"])
+    capsys.readouterr()
+    cli.main(["done", "Read", "--date", "2026-11-20"])
+    assert capsys.readouterr().out.startswith("Checked in 'Read' for 2026-11-20 - streak: ")
+    assert storage.load_habits()[0].checkins == ["2026-11-20"]
+
+
+def test_cli_save_failure_gives_clear_error(data_file, capsys, monkeypatch):
+    """CHK-2: if the file cannot be written, show an error line and exit 1, no traceback."""
+    cli.main(["add", "Read"])
+    capsys.readouterr()
+
+    def broken_save(habits):
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(storage, "save_habits", broken_save)
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["done", "Read"])
+    assert exc.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.err.strip() == "error: could not save the data file (Permission denied)"
+    assert "Traceback" not in captured.err
+    assert "Checked in" not in captured.out

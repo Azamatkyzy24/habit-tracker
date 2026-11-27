@@ -28,6 +28,9 @@ def write_data(path, text):
     '[{"name": "R", "created": "2026-11-21", "checkins": [], "extra": 1}]',  # unknown key
     '[{"name": "R"}]',                           # missing keys
     '{"name": "R"}',                             # not a list
+    '[{"name": "R", "created": "2026-11-21", "checkins": 5}]',     # A06 CHK-1: checkins not a list
+    '[{"name": "R", "created": "2026-11-21", "checkins": null}]',  # A06 CHK-1: checkins null
+    '[{"name": "R", "created": "2026-11-21", "checkins": [5]}]',   # A06 CHK-1: check-in not a string
 ])
 def test_damaged_data_file_gives_clear_error(data_path, capsys, content):
     write_data(data_path, content)
