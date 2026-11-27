@@ -1,0 +1,100 @@
+diff --git a/habit_tracker/cli.py b/habit_tracker/cli.py
+index e54a899..af5401f 100644
+--- a/habit_tracker/cli.py
++++ b/habit_tracker/cli.py
+@@ -58,7 +58,10 @@ def main(argv=None):
+             habit = check_in(habits, name, day)           # 2. core logic
+         except ValueError as e:
+             parser.exit(1, f"error: {e}\n")              # 3. output (error)
+-        storage.save_habits(habits)
++        try:
++            storage.save_habits(habits)
++        except OSError as e:                              # A06 review finding CHK-2
++            parser.exit(1, f"error: could not save the data file ({e.strerror or e})\n")
+         print(format_checkin(habit, day, today))          # 3. output (success)
+ 
+     elif args.command == "report":
+diff --git a/habit_tracker/storage.py b/habit_tracker/storage.py
+index 7cef7b1..07d30dd 100644
+--- a/habit_tracker/storage.py
++++ b/habit_tracker/storage.py
+@@ -19,11 +19,26 @@ def load_habits(path=None):
+     try:
+         with open(path) as f:
+             raw = json.load(f)
+-        return [Habit(**item) for item in raw]
+-    except (ValueError, TypeError) as e:  # bad JSON / wrong or missing keys / not a list
++        habits = [Habit(**item) for item in raw]
++        for h in habits:
++            _check_types(h)
++        return habits
++    except (ValueError, TypeError) as e:  # bad JSON / wrong or missing keys / not a list / wrong types
+         raise DataFileError(f"data file {path} is damaged ({e})") from e
+ 
+ 
++def _check_types(habit):
++    """Raise TypeError if a loaded habit has fields of the wrong type (A06 review finding CHK-1)."""
++    ok = (
++        isinstance(habit.name, str)
++        and isinstance(habit.created, str)
++        and isinstance(habit.checkins, list)
++        and all(isinstance(c, str) for c in habit.checkins)
++    )
++    if not ok:
++        raise TypeError("a habit has a field of the wrong type")
++
++
+ def save_habits(habits, path=None):
+     path = path or DATA_FILE
+     os.makedirs(os.path.dirname(path), exist_ok=True)
+diff --git a/tests/test_checkin.py b/tests/test_checkin.py
+index e3adb67..b5f9012 100644
+--- a/tests/test_checkin.py
++++ b/tests/test_checkin.py
+@@ -137,3 +137,32 @@ def test_cli_duplicate_exit_1_and_nothing_saved(data_file, capsys):
+     assert exc.value.code == 1
+     assert "error: Already checked in 'Read'" in capsys.readouterr().err
+     assert len(storage.load_habits()[0].checkins) == 1
++
++
++# ---------- Added after the agentic code review (Task 5) ----------
++
++def test_cli_done_with_past_date_is_saved(data_file, capsys):
++    """CHK-9: a successful --date check-in through the CLI is printed and saved."""
++    cli.main(["add", "Read"])
++    capsys.readouterr()
++    cli.main(["done", "Read", "--date", "2026-11-20"])
++    assert capsys.readouterr().out.startswith("Checked in 'Read' for 2026-11-20 - streak: ")
++    assert storage.load_habits()[0].checkins == ["2026-11-20"]
++
++
++def test_cli_save_failure_gives_clear_error(data_file, capsys, monkeypatch):
++    """CHK-2: if the file cannot be written, show an error line and exit 1, no traceback."""
++    cli.main(["add", "Read"])
++    capsys.readouterr()
++
++    def broken_save(habits):
++        raise PermissionError(13, "Permission denied")
++
++    monkeypatch.setattr(storage, "save_habits", broken_save)
++    with pytest.raises(SystemExit) as exc:
++        cli.main(["done", "Read"])
++    assert exc.value.code == 1
++    captured = capsys.readouterr()
++    assert captured.err.strip() == "error: could not save the data file (Permission denied)"
++    assert "Traceback" not in captured.err
++    assert "Checked in" not in captured.out
+diff --git a/tests/test_safety.py b/tests/test_safety.py
+index 2461980..f5daf21 100644
+--- a/tests/test_safety.py
++++ b/tests/test_safety.py
+@@ -28,6 +28,9 @@ def write_data(path, text):
+     '[{"name": "R", "created": "2026-11-21", "checkins": [], "extra": 1}]',  # unknown key
+     '[{"name": "R"}]',                           # missing keys
+     '{"name": "R"}',                             # not a list
++    '[{"name": "R", "created": "2026-11-21", "checkins": 5}]',     # A06 CHK-1: checkins not a list
++    '[{"name": "R", "created": "2026-11-21", "checkins": null}]',  # A06 CHK-1: checkins null
++    '[{"name": "R", "created": "2026-11-21", "checkins": [5]}]',   # A06 CHK-1: check-in not a string
+ ])
+ def test_damaged_data_file_gives_clear_error(data_path, capsys, content):
+     write_data(data_path, content)

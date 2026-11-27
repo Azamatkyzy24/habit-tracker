@@ -1,0 +1,185 @@
+I’ll verify the checked-out branch and inspect the exact implementation and tests without modifying the workspace.
+
+Ran terminal command: git branch --show-current; git status --porcelain
+
+Read , lines 1 to 40
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\AGENTS.md",
+  "view_range": [
+    1,
+    40
+  ]
+}
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\habit_tracker\\validation.py"
+}
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\habit_tracker\\tracker.py"
+}
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\habit_tracker\\exporter.py"
+}
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\habit_tracker\\cli.py"
+}
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\tests\\test_checkin.py"
+}
+
+Search for `^(def |class |    def )`
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\habit_tracker\\storage.py"
+}
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\habit_tracker\\models.py"
+}
+
+Search for `check_in|format_checkin|parse_checkin_date|validate_name|save_habits|Duplicat...`
+
+Search for `^def test_|^@pytest.mark.parametrize`
+
+I’m checking acceptance criteria and storage behavior so findings distinguish implementation defects from assumptions.
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\docs\\01-baseline.md"
+}
+
+Search for `AC[1-6]|check.?in|past|future|duplicate|streak|week`
+
+Search for `save_habits\(`
+
+Search for `check_in\(`
+
+Read , lines 1 to 70
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\README.md",
+  "view_range": [
+    1,
+    70
+  ]
+}
+
+"Read" failed
+Completed with input: {
+  "path": "/C/Users/user/Desktop/habit-tracker/lowcode/CheckIn.js"
+}
+Tool execution failed: Path does not exist
+
+"Read" failed
+Completed with input: {
+  "path": "/C/Users/user/Desktop/habit-tracker/lowcode/habit-tracker-a06-export.json",
+  "view_range": [
+    1,
+    220
+  ]
+}
+Tool execution failed: Path does not exist
+
+Search for `Assignment 06|Check in|backfill|past day|future|duplicate|created`
+
+Read 
+Completed with input: {
+  "path": "C:\\Users\\user\\Desktop\\habit-tracker\\lowcode\\CheckIn.js"
+}
+
+## Review summary
+
+Scope: `assignment-06`, worktree unchanged. I did not run tests or execute the CLI.
+
+1. **CHK-1 — Malformed `checkins` data can crash `done` instead of producing an application error**
+   - **File/line:** `tracker.py`, `storage.py`
+   - **What is wrong:** Storage loads a habit even if `checkins` is not a list. `check_in` then uses `in` against that value.
+   - **Scenario:** `{"name":"Read","created":"2026-11-20","checkins":5}`. Loading succeeds, but `done "Read"` raises `TypeError: argument of type 'int' is not iterable`, and `cli.py` does not catch it.
+   - **Severity:** High
+
+2. **CHK-2 — Successful check-ins can expose a traceback on save failure**
+   - **File/line:** `cli.py`, `storage.py`
+   - **What is wrong:** Validation and `check_in` are caught, but `save_habits()` is outside the `try` block. I/O failures are raw `OSError` exceptions rather than a controlled CLI error.
+   - **Scenario:** The data directory becomes unwritable or `habits.json.tmp` cannot be opened; `done` mutates the loaded list and then prints a traceback instead of `error: ...`.
+   - **Severity:** Medium
+
+3. **CHK-3 — Check-ins before a habit's creation date are accepted**
+   - **File/line:** `tracker.py`, `validation.py`
+   - **What is wrong:** Validation rejects only future dates, not dates earlier than `Habit.created`.
+   - **Scenario:** A habit created on `2026-11-27` can receive `done "Read" --date 2020-01-01`.
+   - **Severity:** Medium
+   - **Uncertainty:** This may be intentional if retroactive check-ins are supported, but the repository does not document a minimum date.
+
+4. **CHK-4 — Core `check_in` assumes a `date` object**
+   - **File/line:** `tracker.py`
+   - **What is wrong:** Calling `check_in(habits, "Read", "2026-11-27")` raises `AttributeError` rather than the documented `ValueError`.
+   - **Scenario:** A caller bypasses `parse_checkin_date()` and passes an ISO string.
+   - **Severity:** Medium
+   - **Note:** The CLI is protected, but this is inconsistent public function behavior.
+
+5. **CHK-5 — `validate_name()` leaks `AttributeError` for non-string inputs**
+   - **File/line:** `validation.py`
+   - **What is wrong:** It calls `.strip()` directly even though it promises that unacceptable input raises `ValidationError`.
+   - **Scenario:** `validate_name(123)` raises `AttributeError: 'int' object has no attribute 'strip'`, not `ValidationError`.
+   - **Severity:** Low
+   - **Uncertainty:** Argparse normally supplies strings, so this mainly affects direct callers and maintainability.
+
+6. **CHK-6 — `parse_checkin_date()` leaks a `TypeError` for an invalid injected `today`**
+   - **File/line:** `validation.py`
+   - **What is wrong:** It assumes `today` is a `date`; comparing a parsed `date` to `"2026-11-27"` raises `TypeError`.
+   - **Scenario:** `parse_checkin_date("2026-11-20", "2026-11-27")`.
+   - **Severity:** Low
+
+7. **CHK-7 — Name validation is enforced only by the CLI**
+   - **File/line:** `tracker.py`
+   - **What is wrong:** `check_in()` finds habits by exact name but does not validate or normalize the name itself.
+   - **Scenario:** Direct call `check_in(habits, "  Read  ", date(...))` fails with `"No habit called '  Read  '"`, even though the CLI normalizes names to `"Read"`.
+   - **Severity:** Low
+   - **Uncertainty:** This is a maintainability inconsistency rather than a CLI bug.
+
+8. **CHK-8 — No test verifies successful CLI persistence and output**
+   - **File/line:** `test_checkin.py`
+   - **What is wrong:** Core success tests exist, but no test calls `cli.main(["done", "Read"])` and verifies both the printed confirmation and the saved JSON.
+   - **Scenario:** A future CLI change could skip `save_habits()` or print the wrong line while core tests continue passing.
+   - **Severity:** Medium
+
+9. **CHK-9 — Successful `--date` CLI behavior is untested**
+   - **File/line:** `test_checkin.py`
+   - **What is wrong:** The date parsing tests are core-only; no CLI test verifies a past date is saved and formatted.
+   - **Scenario:** An argparse wiring regression or incorrect `format_checkin()` invocation would not be detected.
+   - **Severity:** Medium
+
+10. **CHK-10 — No test covers save failure handling**
+    - **File/line:** `test_checkin.py`
+    - **What is wrong:** The fixture replaces both load/save but only uses normal local paths. It does not make `save_habits()` raise.
+    - **Scenario:** Storage permissions or disk failures produce untested traceback behavior.
+    - **Severity:** Medium
+
+11. **CHK-11 — No test covers malformed stored field types during `done`**
+    - **File/line:** `test_checkin.py`
+    - **What is wrong:** Tests cover duplicate JSON damage only indirectly through existing safety tests, not check-in behavior with wrong `checkins` types.
+    - **Scenario:** `checkins: 5` or `checkins: null` passes loading and crashes in `tracker.py` or later streak calculation.
+    - **Severity:** High
+
+12. **CHK-12 — Concurrent CLI runs can lose check-ins**
+    - **File/line:** `cli.py`, `storage.py`
+    - **What is wrong:** Each process performs a load/mutate/save sequence with no locking or retry.
+    - **Scenario:** Two terminal processes load the same file, each adds a different check-in, and the last save overwrites the other's change.
+    - **Severity:** Low
+    - **Note:** README already states this limitation; therefore it is not a newly undocumented behavior.
+
+### Security
+
+No direct security vulnerability is apparent. The implementation uses no shell execution or HTML rendering. The higher-risk issues are data validation and failure handling rather than exploitability.
+
+No tests were run, as requested.
