@@ -57,6 +57,14 @@ export default {
 	},
 
 	// ---------- 3. user-facing output ----------
+	// The Text widget renders HTML, so user input must be escaped before it is shown (Task 6, finding S-1)
+	escapeHtml(text) {
+		return String(text)
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;");
+	},
 	successText(habit, day, today) {
 		return "Checked in '" + habit.name + "' for " + day + " - streak: " + this.streak(habit, today) + " days, this week: " + this.weekly(habit, today) + "%";
 	},
@@ -79,9 +87,9 @@ export default {
 			const habits = JSON.parse(JSON.stringify(appsmith.store.habits || []));
 			const habit = this.checkIn(habits, name, day);            // 2. core logic
 			await storeValue("habits", habits, true);                 // save (only on success)
-			await storeValue("result", { ok: true, text: this.successText(habit, day, today) }, true); // 3. output
+			await storeValue("result", { ok: true, text: this.escapeHtml(this.successText(habit, day, today)) }, true); // 3. output
 		} catch (e) {
-			await storeValue("result", { ok: false, text: "error: " + e.message }, true);             // 3. output (error)
+			await storeValue("result", { ok: false, text: this.escapeHtml("error: " + e.message) }, true);             // 3. output (error)
 		}
 	},
 	async resetData() {
